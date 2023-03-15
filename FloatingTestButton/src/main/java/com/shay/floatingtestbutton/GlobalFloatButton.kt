@@ -7,6 +7,7 @@ import android.app.Application.ActivityLifecycleCallbacks
 import android.content.Context
 import android.os.Bundle
 import android.util.ArrayMap
+import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
@@ -71,18 +72,20 @@ class GlobalFloatButton :androidx.appcompat.widget.AppCompatImageButton{
                 mutex.withLock {
                     val activityList = withContext(Dispatchers.IO) {
                         getActivitiesByApplication(application)
-                    }
-                    if (!activityList.isNullOrEmpty()){
+                    }//
+                    //if (!activityList.isNullOrEmpty()){
+                    if (!allActivtiys.isNullOrEmpty()){
                         withContext(Dispatchers.IO) {
                             //取出当前显示的栈顶activity, activity为空即退出
-                            val topActivity = activityList.first() ?: return@withContext
+                            //val topActivity = activityList.first() ?: return@withContext
+                            val topActivity = allActivtiys.entries.last().value?: return@withContext
                             getAnnotationClickMethod(topActivity){
-                                    it.forEach { method ->
-                                        withContext(Dispatchers.Main) {
-                                            method.invoke(topActivity)
-                                        }
+                                it.forEach { method ->
+                                    withContext(Dispatchers.Main) {
+                                        method.invoke(topActivity)
                                     }
                                 }
+                            }
                         }
                     }
                 }
@@ -91,11 +94,11 @@ class GlobalFloatButton :androidx.appcompat.widget.AppCompatImageButton{
     }
 
     companion object{
-         var windowManager:WindowManager? = null;
+        var windowManager:WindowManager? = null;
         /**当前显示界面的布局*/
-         var contentLayout:WeakReference<FrameLayout>? = null;
-        private val allActivtiys:ArrayMap<Activity, Activity>by lazy {
-            ArrayMap()
+        var contentLayout:WeakReference<FrameLayout>? = null;
+        private val allActivtiys:LinkedHashMap<Activity, Activity>by lazy {
+            LinkedHashMap()
         }
         private lateinit var application: Application
         /**用于创建按钮的activtiy*/
@@ -110,7 +113,8 @@ class GlobalFloatButton :androidx.appcompat.widget.AppCompatImageButton{
                 try {
                     contentLayout?.get()?.removeView(it)
                 }catch (e:java.lang.IllegalStateException){
-                }finally { }
+                }finally {
+                }
             }
             windowManager = null;
             instance = null
@@ -131,10 +135,16 @@ class GlobalFloatButton :androidx.appcompat.widget.AppCompatImageButton{
         }
 
         private fun layoutBtn(layout: FrameLayout){
-            contentLayout?.get()?.removeView(instance)/*先从之前的layout移除*/
-            contentLayout = WeakReference(layout)
-            contentLayout?.get()?.addView(instance)
+            instance?.let {
+                try {
+                    contentLayout?.get()?.removeView(it)/*先从之前的layout移除*/
+                    contentLayout = WeakReference(layout)
+                    contentLayout?.get()?.addView(it)
+                }catch (e:Exception){
+                    Log.e("GlobalFloatButton", "ReLayout ERROR")
+                }
 
+            }
         }
 
         private fun createGButton(activity:Activity){
